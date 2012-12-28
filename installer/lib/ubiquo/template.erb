@@ -42,7 +42,9 @@ def rake(command, options={})
   env  = options[:env] || 'development'
   sudo = options[:sudo] && RbConfig::CONFIG['host_os'] !~ /mswin|mingw/ ? 'sudo ' : ''
   rvm = "<%= @opts[:rvm] ? "rvm @#{@opts[:app_name]} do " : '' %>"
-  in_root { run("#{sudo}#{rvm}#{extify(:rake)} #{command} RAILS_ENV=#{env}", :verbose => false) }
+  Bundler.with_clean_env do
+    in_root { run("#{sudo}#{rvm} bundle exec #{extify(:rake)} #{command} RAILS_ENV=#{env}", :verbose => false) }
+  end
 end
 
 def add_plugins(plugin_names, options={})
@@ -338,16 +340,22 @@ run "rvm gemset create #{appname}"
 file '.rvmrc', <<-CODE
 rvm gemset use #{appname}
 CODE
-run "rvm @#{appname} do gem install bundler --no-ri --no-rdoc"
+Bundler.with_clean_env do
+  run "rvm @#{appname} do gem install bundler --no-ri --no-rdoc"
+end
 <% end %>
 
 # we  need to take care of Jruby
-bundle_command = "<%= @opts[:rvm] ? 'rvm @#{appname} do ' : '' %> bundle install"
+bundle_command = " <%= @opts[:rvm] ? 'rvm @#{appname} do ' : '' %> bundle install "
+in_root do
+  Bundler.with_clean_env do
 <% if RUBY_PLATFORM =~ /java/ %>
-run "jruby -S #{bundle_command}"
+    run "jruby -S #{bundle_command}"
 <% else %>
-run" #{bundle_command}"
+    run "#{bundle_command}"
 <% end %>
+  end
+end
 # End of bundler setup
 
 rake("calendardateselect:install")
